@@ -26,11 +26,12 @@ namespace ICM.FormatSupervisor
             base.ConfigureServicesImpl(services, builder);
 
             builder.RegisterType<SupervisorService>().AsSelf().SingleInstance();
+            builder.RegisterType<RuleService>().AsSelf().SingleInstance();
         }
 
         private Task ConnectKafka(SupervisorService service, CancellationToken stopSignal)
         {
-            return Task.Run(() => service.Start(stopSignal));
+            return Task.Run(async () => await service.Start(stopSignal));
         }
     }
 }

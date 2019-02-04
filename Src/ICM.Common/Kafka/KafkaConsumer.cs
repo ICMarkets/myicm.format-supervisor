@@ -2,6 +2,7 @@
 using ICM.Common.Multithreading;
 using NLog;
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,7 +24,7 @@ namespace ICM.Common.Kafka
             _workerCountdown = workerCountdown;
         }
 
-        public async Task Start(string[] topics, CancellationToken stopSignal)
+        public async Task Start(List<string> topics, CancellationToken stopSignal)
         {
             try
             {
