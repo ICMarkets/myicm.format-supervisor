@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Schema;
+﻿using ICM.FormatSupervisor.Enums;
+using Newtonsoft.Json.Schema;
 
 namespace ICM.FormatSupervisor.Models
 {
@@ -9,5 +10,6 @@ namespace ICM.FormatSupervisor.Models
         public string Key { get; set; }
         public JSchema Schema { get; set; }
         public bool Enabled { get; set; }
+        public RuleType RuleType { get; set; }
     }
 }

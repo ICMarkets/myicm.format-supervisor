@@ -11,6 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using NLog;
 using System;
+using System.Reflection;
 using System.Threading;
 
 namespace ICM.FormatSupervisor
@@ -22,6 +23,7 @@ namespace ICM.FormatSupervisor
         public abstract string DisplayName { get; }
         private readonly WorkerCountdown _workerCountdown;
         private readonly CancellationTokenSource _stopSignalSource;
+        public event Action<bool> OnExit;
 
         public StartupBase()
         {
@@ -42,10 +44,12 @@ namespace ICM.FormatSupervisor
             {
                 _workerCountdown.Wait(stopWaitMs);
                 Log.Log(LogLevel.Info, $"Exit clean");
+                OnExit(true);
             }
             catch (OperationCanceledException)
             {
                 Log.Log(LogLevel.Error, $"Exit by {stopWaitMs} ms timeout (workers aborted: {_workerCountdown.CurrentCount})");
+                OnExit(false);
             }
         }
 
@@ -80,7 +84,7 @@ namespace ICM.FormatSupervisor
 
         public virtual void ConfigureServicesImpl(IServiceCollection services, ContainerBuilder builder)
         {
-            services.AddMvc();
+            services.AddMvc().AddApplicationPart(Assembly.GetExecutingAssembly()).AddControllersAsServices();
             builder.Populate(services);
         }
 

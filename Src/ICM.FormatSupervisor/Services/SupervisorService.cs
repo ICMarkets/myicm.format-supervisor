@@ -2,7 +2,9 @@
 using ICM.Common.Helpers;
 using ICM.Common.Kafka;
 using ICM.Common.Multithreading;
+using ICM.FormatSupervisor.Enums;
 using NLog;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,7 +14,7 @@ namespace ICM.FormatSupervisor.Services
     {
         private readonly RuleService _ruleService;
 
-        public SupervisorService(MessageSerializer serializer, WorkerCountdown workerCountdown, RuleService ruleService) 
+        public SupervisorService(MessageSerializer serializer, WorkerCountdown workerCountdown, RuleService ruleService)
             : base(EnvironmentHelper.Variables[Variable.ICM_KAFKA], serializer, workerCountdown)
         {
             _consumerConfig = new ConsumerConfig
@@ -31,6 +33,33 @@ namespace ICM.FormatSupervisor.Services
             await Start(topics, stopSignal);
         }
 
+        public async Task<bool> PublishAdpRules(string topic)
+        {
+            var rules = await _ruleService.GetRulesFromDatabase(RuleType.ADP, true);
+            Log.Log(LogLevel.Info, $"{rules.Count} ADP rules fetched from DB");
+            try
+            {
+                using (var p = CreateProducer())
+                {
+                    foreach (var rule in rules)
+                    {
+                        await p.ProduceAsync(topic, new Message<string, byte[]>()
+                        {
+                            Key = rule.Key,
+                            Value = _messageSerializer.Serialize(rule.Schema.ToString())
+                        });
+                    }
+                }
+                Log.Log(LogLevel.Info, $"{rules.Count} rules pushed to '{topic}' topic");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Log(LogLevel.Error, $"Error writing rules: {ex.Message}");
+                return false;
+            }
+        }
+
         protected override async Task PerformTask(ConsumeResult<string, byte[]> message)
         {
             var messageText = _messageSerializer.Deserialize<string>(message.Value);
@@ -38,10 +67,10 @@ namespace ICM.FormatSupervisor.Services
             if (errors == null)
                 return;
 
-            using (var p = new Producer<string, byte[]>(_producerConfig))
+            using (var p = CreateProducer())
             {
                 await p.ProduceAsync("format.issues", new Message<string, byte[]>() { Key = message.Topic, Value = _messageSerializer.Serialize(errors) });
-                Log.Log(LogLevel.Debug, errors);
+                Log.Log(LogLevel.Warn, errors);
             }
         }
     }

@@ -40,7 +40,7 @@ namespace ICM.WinService
                 if (IsDebug(args))
                 {
                     var console = new ConsoleApp(host, startup);
-                    host.Run();
+                    console.Run();
                 }
                 else
                 {

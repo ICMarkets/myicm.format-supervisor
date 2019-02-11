@@ -19,7 +19,7 @@ namespace ICM.Common.Kafka
 
         public KafkaConsumer(string bootstrapServers, MessageSerializer messageSerializer, WorkerCountdown workerCountdown)
         {
-            _producerConfig = new ProducerConfig { BootstrapServers = bootstrapServers };
+            _producerConfig = new ProducerConfig { BootstrapServers = bootstrapServers, MessageTimeoutMs = 2000 };
             _messageSerializer = messageSerializer;
             _workerCountdown = workerCountdown;
         }
@@ -36,7 +36,11 @@ namespace ICM.Common.Kafka
                     bool consuming = true;
                     // The client will automatically recover from non-fatal errors. You typically
                     // don't need to take any action unless an error is marked as fatal.
-                    _consumer.OnError += (_, e) => consuming = !e.IsFatal;
+                    _consumer.OnError += (_, e) =>
+                    {
+                        Log.Log(LogLevel.Error, "Kafka error: " + e.Reason);
+                        consuming = !e.IsFatal;
+                    };
 
                     _consumer.Subscribe(topics);
                     var topicsStr = string.Join(", ", topics);
@@ -48,7 +52,12 @@ namespace ICM.Common.Kafka
                             var message = _consumer.Consume(stopSignal);
                             _workerCountdown.AddCount();
                             Task.Run(async () => await PerformTask(message)
-                                .ContinueWith(task => _workerCountdown.Signal()));
+                                .ContinueWith(task =>
+                                {
+                                    _workerCountdown.Signal();
+                                    if (task.IsFaulted)
+                                        throw task.Exception;
+                                }));
                         }
                         catch (OperationCanceledException)
                         {
@@ -80,5 +89,15 @@ namespace ICM.Common.Kafka
         }
 
         protected abstract Task PerformTask(ConsumeResult<string, byte[]> message);
+
+        protected Producer<string, byte[]> CreateProducer()
+        {
+            var p = new Producer<string, byte[]>(_producerConfig);
+            p.OnError += (_, e) =>
+            {
+                Log.Log(LogLevel.Error, "Kafka error: " + e.Reason);
+            };
+            return p;
+        }
     }
 }

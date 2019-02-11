@@ -1,5 +1,6 @@
 ﻿using ICM.FormatSupervisor;
 using Microsoft.AspNetCore.Hosting;
+using System;
 using System.Runtime.InteropServices;
 
 namespace ICM.WinService
@@ -14,9 +15,13 @@ namespace ICM.WinService
         {
             _host = host;
             _startup = startup;
+            _startup.OnExit += clean =>
+            {
+                Environment.Exit(clean ? 0 : 1);
+            };
         }
 
-        protected void Run()
+        public void Run()
         {
             handler = new ConsoleEventDelegate(ConsoleEventCallback);
             SetConsoleCtrlHandler(handler, true);
