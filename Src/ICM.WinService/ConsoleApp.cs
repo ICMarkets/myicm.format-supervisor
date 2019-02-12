@@ -1,35 +1,27 @@
 ﻿using ICM.FormatSupervisor;
-using Microsoft.AspNetCore.Hosting;
 using System;
 using System.Runtime.InteropServices;
 
 namespace ICM.WinService
 {
-    internal class ConsoleApp
+    public class ConsoleApp
     {
-        private const int stopWaitMs = 150000;
-        private readonly IWebHost _host;
-        private readonly Startup _startup;
+        private const int stopWaitMs = 5000;
+        private Startup _startup = new Startup();
 
-        public ConsoleApp(IWebHost host, Startup startup)
+        public void Start()
         {
-            _host = host;
-            _startup = startup;
+            handler = new ConsoleEventDelegate(ConsoleEventCallback);
+            SetConsoleCtrlHandler(handler, true);
             _startup.OnExit += clean =>
             {
                 Environment.Exit(clean ? 0 : 1);
             };
+
+            _startup.Start();
         }
 
-        public void Run()
-        {
-            handler = new ConsoleEventDelegate(ConsoleEventCallback);
-            SetConsoleCtrlHandler(handler, true);
-
-            _host.Run();
-        }
-
-        private bool ConsoleEventCallback(int eventType)
+        bool ConsoleEventCallback(int eventType)
         {
             if (eventType == 2 || eventType == 0) // on exit
             {

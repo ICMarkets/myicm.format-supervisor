@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Data.SqlClient;
 using Newtonsoft.Json.Schema;
 using Newtonsoft.Json.Linq;
 using NLog;

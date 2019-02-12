@@ -1,8 +1,4 @@
-﻿using ICM.FormatSupervisor;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -18,34 +14,17 @@ namespace ICM.WinService
 
         static void Main(string[] args)
         {
-            string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
             try
             {
-                var config = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
-                    .AddJsonFile(Path.Combine(assemblyPath, "config.json"), false)
-                    .Build();
-
-                var startup = new Startup();
-
-                var host = new WebHostBuilder()
-                .UseKestrel()
-                .UseConfiguration(config)
-                .ConfigureServices(services =>
-                {
-                    services.AddSingleton<IStartup>(startup);
-                })
-                .Build();
-
                 if (IsDebug(args))
                 {
-                    var console = new ConsoleApp(host, startup);
-                    console.Run();
+                    var console = new ConsoleApp();
+                    console.Start();
                 }
                 else
                 {
-                    var webHostService = new WinService(host, startup);
-                    ServiceBase.Run(webHostService);
+                    var service = new WinService();
+                    ServiceBase.Run(service);
                 }
             }
             catch (Exception ex)
@@ -58,6 +37,7 @@ namespace ICM.WinService
                 }
                 else
                 {
+                    string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
                     File.WriteAllText(Path.Combine(assemblyPath, "error.log"), JsonConvert.SerializeObject(ex));
                 }
             }

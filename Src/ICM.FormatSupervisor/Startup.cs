@@ -1,11 +1,7 @@
 ﻿using Autofac;
 using ICM.FormatSupervisor.Services;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using NLog;
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace ICM.FormatSupervisor
 {
@@ -13,31 +9,27 @@ namespace ICM.FormatSupervisor
     {
         public override string DisplayName => "FORMAT SUPERVISOR";
 
-        public override void Configure(IApplicationBuilder app)
+        public void Start()
         {
-            base.Configure(app);
+            var provider = ConfigureServices();
 
-            var schedulerService = app.ApplicationServices.GetService<SupervisorService>();
-            var stopSignalSource = app.ApplicationServices.GetService<CancellationTokenSource>();
+            var schedulerService = ApplicationContainer.Resolve<SupervisorService>();
+            var stopSignalSource = ApplicationContainer.Resolve<CancellationTokenSource>();
 
             ConnectKafka(schedulerService, stopSignalSource);
         }
 
-        public override void ConfigureServicesImpl(IServiceCollection services, ContainerBuilder builder)
+        public override void ConfigureServicesImpl(ContainerBuilder builder)
         {
-            base.ConfigureServicesImpl(services, builder);
+            base.ConfigureServicesImpl(builder);
 
             builder.RegisterType<SupervisorService>().AsSelf().SingleInstance();
             builder.RegisterType<RuleService>().AsSelf().SingleInstance();
         }
 
-        private Task ConnectKafka(SupervisorService service, CancellationTokenSource stopSignal)
+        private void ConnectKafka(SupervisorService service, CancellationTokenSource stopSignal)
         {
-            return Task.Run(async () => await service.Start(stopSignal.Token))
-                .ContinueWith(task => {
-                    Log.Log(LogLevel.Error, $"Kafka thread exception: {GetFirstIfAggregate(task.Exception).Message}");
-                    WaitExit(0);
-                }, TaskContinuationOptions.OnlyOnFaulted);
+            service.Start(stopSignal.Token).Wait();
         }
 
         private Exception GetFirstIfAggregate(Exception ex)

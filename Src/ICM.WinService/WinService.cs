@@ -1,22 +1,20 @@
 ﻿using ICM.FormatSupervisor;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Hosting.WindowsServices;
-using NLog;
+using System.ServiceProcess;
+using System.Threading.Tasks;
 
 namespace ICM.WinService
 {
-    internal class WinService : WebHostService
+    public class WinService : ServiceBase
     {
         private const int stopWaitMs = 150000;
-        private readonly Logger Log = LogManager.GetCurrentClassLogger();
-        private readonly Startup _startup;
+        private Startup _startup = new Startup();
 
-        public WinService(IWebHost host, Startup startup) : base(host)
+        protected override void OnStart(string[] args)
         {
-            _startup = startup;
+            Task.Run(() => _startup.Start());
         }
 
-        protected override void OnStopping()
+        protected override void OnStop()
         {
             RequestAdditionalTime(stopWaitMs);
             _startup.WaitExit(stopWaitMs);

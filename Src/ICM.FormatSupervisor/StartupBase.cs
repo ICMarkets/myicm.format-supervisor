@@ -3,20 +3,14 @@ using Autofac.Extensions.DependencyInjection;
 using ICM.Common.Helpers;
 using ICM.Common.Kafka;
 using ICM.Common.Multithreading;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json;
 using NLog;
 using System;
-using System.Reflection;
 using System.Threading;
 
 namespace ICM.FormatSupervisor
 {
-    public abstract class StartupBase : IStartup
+    public abstract class StartupBase
     {
         protected readonly Logger Log = LogManager.GetCurrentClassLogger();
         public IContainer ApplicationContainer { get; protected set; }
@@ -44,12 +38,12 @@ namespace ICM.FormatSupervisor
             {
                 _workerCountdown.Wait(stopWaitMs);
                 Log.Log(LogLevel.Info, $"Exit clean");
-                OnExit(true);
+                OnExit?.Invoke(true);
             }
             catch (OperationCanceledException)
             {
                 Log.Log(LogLevel.Error, $"Exit by {stopWaitMs} ms timeout (workers aborted: {_workerCountdown.CurrentCount})");
-                OnExit(false);
+                OnExit?.Invoke(false);
             }
         }
 
@@ -59,7 +53,7 @@ namespace ICM.FormatSupervisor
             _stopSignalSource.Dispose();
         }
 
-        public IServiceProvider ConfigureServices(IServiceCollection services)
+        public IServiceProvider ConfigureServices()
         {
             EnvironmentHelper.Load();
 
@@ -71,7 +65,7 @@ namespace ICM.FormatSupervisor
             // autofac dependency
             var builder = new ContainerBuilder();
 
-            ConfigureServicesImpl(services, builder);
+            ConfigureServicesImpl(builder);
 
             builder.RegisterType<MessageSerializer>().AsSelf().SingleInstance();
             builder.Register(context => _workerCountdown).SingleInstance().ExternallyOwned();
@@ -82,38 +76,8 @@ namespace ICM.FormatSupervisor
             return new AutofacServiceProvider(ApplicationContainer);
         }
 
-        public virtual void ConfigureServicesImpl(IServiceCollection services, ContainerBuilder builder)
+        public virtual void ConfigureServicesImpl(ContainerBuilder builder)
         {
-            services.AddMvc().AddApplicationPart(Assembly.GetExecutingAssembly()).AddControllersAsServices();
-            builder.Populate(services);
-        }
-
-        public virtual void Configure(IApplicationBuilder app)
-        {
-            app.UseMvcWithDefaultRoute();
-            app.UseExceptionHandler(b => CatchExceptions(b));
-        }
-
-        protected virtual void CatchExceptions(IApplicationBuilder builder)
-        {
-            builder.Use(async (context, next) =>
-            {
-                var error = context.Features[typeof(IExceptionHandlerFeature)] as IExceptionHandlerFeature;
-                context.Response.ContentType = "application/json";
-                string errorText = null;
-
-                if (error?.Error != null)
-                {
-                    context.Response.StatusCode = 500;
-                    errorText = JsonConvert.SerializeObject(new { global = new[] { error.Error.Message } });
-                }
-                else
-                {
-                    await next();
-                }
-
-                await context.Response.WriteAsync(errorText);
-            });
         }
     }
 }
