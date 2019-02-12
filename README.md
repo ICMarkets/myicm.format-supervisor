@@ -8,10 +8,11 @@ confluent-kafka-dotnet, MsgPack.Cli, JSON schema, NLog to Kafka, winservice/cons
 read: any
 write: format.issues, schemas.adp
 
-# schema rules
+# schema rules and naming
 Schema is unique per topic/key. Schema can refer an another schema to avoid duplicate definitions. Missing schema is considered always valid.
 Schemas are stored in ICM.FormatSupervisor\Schemas folder. 'ADP' folder contains schema files by key name (ADP/keyname.json) 
 'Kafka' folder contains subfolders named by topic names, with files named after the keys (Kafka/topicname/keyname.json)
+To use one schema for all keys in topic, use "!all.json" filename.
 To temporarily disable schema, rename it so it has extension different from JSON (keyname._json)
 
 # schema referencing
