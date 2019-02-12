@@ -21,4 +21,22 @@
     <ProjectReference Include="..\ICM.Common\ICM.Common.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Schemas\ADP\test.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Schemas\Kafka\one.more\lol.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Schemas\Kafka\one.more\msg.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Schemas\Kafka\test.idk\lol.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Schemas\Kafka\test.idk\msg.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

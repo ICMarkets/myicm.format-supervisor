@@ -3,7 +3,6 @@ using ICM.FormatSupervisor.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Data.SqlClient;
 using Newtonsoft.Json.Schema;
@@ -11,9 +10,17 @@ using Newtonsoft.Json.Linq;
 using NLog;
 using Newtonsoft.Json;
 using ICM.FormatSupervisor.Enums;
+using System.IO;
+using System.Reflection;
 
 namespace ICM.FormatSupervisor.Services
 {
+    class SchemaRefCheck
+    {
+        [JsonProperty("$ref")]
+        public string Ref { get; set; }
+    }
+
     public class RuleService
     {
         protected readonly Logger Log = LogManager.GetCurrentClassLogger();
@@ -21,39 +28,45 @@ namespace ICM.FormatSupervisor.Services
             
         public async Task Load()
         {
-            Log.Log(LogLevel.Debug, $"Loading rules (rules to clear: {_rules.Count})");
-            _rules = await GetRulesFromDatabase(RuleType.Kafka, false);
-            Log.Log(LogLevel.Debug, $"Rules loaded: {_rules.Count}");
+            _rules = LoadRules(RuleType.Kafka, false);
+            Log.Log(LogLevel.Info, $"{_rules.Count} Kafka rule(s) loaded");
         }
 
-        public async Task<List<RuleModel>> GetRulesFromDatabase(RuleType type, bool onlyEnabled)
+        public List<RuleModel> LoadRules(RuleType type, bool onlyEnabled)
         {
             var rules = new List<RuleModel>();
-            var connectionString = EnvironmentHelper.Variables[Variable.ICM_FORMATDB];
 
-            using (var conn = new SqlConnection(connectionString))
-            using (var command = new SqlCommand($@"
-select r.Id, r.Topic, r.[Key], js.SchemaText, r.Enabled, r.RuleTypeId
-from [Rule] r 
-inner join [JsonSchema] js
-on js.Id = r.JsonSchemaId
-where r.RuleTypeId = {(int)type}" + (onlyEnabled ? " and r.Enabled = 1" : ""), conn))
+            string assemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+
+            // disable schemas by making their extensions different from ".json"
+            // file named "!all.json" will define schemas for every key under the topic
+            var files = Directory.EnumerateFiles(Path.Combine(assemblyPath, $"Schemas\\{type}"), 
+                onlyEnabled ? "*.json" : "*.*", SearchOption.AllDirectories).Select(i => new FileInfo(i));
+
+            foreach (var fi in files)
             {
-                await conn.OpenAsync();
-                var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                var rule = new RuleModel
                 {
-                    rules.Add(new RuleModel
-                    {
-                        Id = (int)reader["Id"],
-                        Topic = GetWithNull<string>(reader["Topic"]),
-                        Key = GetWithNull<string>(reader["Key"]),
-                        Schema = JSchema.Parse((string)reader["SchemaText"]),
-                        Enabled = (bool)reader["Enabled"],
-                        RuleType = (RuleType)reader["RuleTypeId"],
-                    });
+                    Topic = fi.Directory.Name,
+                    Key = Path.GetFileNameWithoutExtension(fi.Name) == "!all" ? null : Path.GetFileNameWithoutExtension(fi.Name).ToLower(),
+                    RuleType = type,
+                    Enabled = fi.Extension == ".json"
+                };
+                var text = File.ReadAllText(fi.FullName);
+                var refCheck = JsonConvert.DeserializeObject<SchemaRefCheck>(text);
+                if (refCheck.Ref != null)
+                {
+                    var schemaPath = Path.Combine(assemblyPath, $"Schemas\\{type}", refCheck.Ref);
+                    if (!File.Exists(schemaPath))
+                        throw new Exception($"Schema path failed. {fi.Directory.Name}/{fi.Name} => {refCheck.Ref}");
+                    rule.Schema = JSchema.Parse(File.ReadAllText(schemaPath));
                 }
+                else
+                    rule.Schema = JSchema.Parse(text);
+
+                rules.Add(rule);
             }
+
             return rules;
         }
 
@@ -80,7 +93,7 @@ where r.RuleTypeId = {(int)type}" + (onlyEnabled ? " and r.Enabled = 1" : ""), c
             }
             catch (Exception ex)
             {
-                return $"Message {topic}/{key} is not a valid JSON";
+                return $"Not valid JSON";
             }
 
             var rule = GetRule(topic, key);
@@ -90,7 +103,7 @@ where r.RuleTypeId = {(int)type}" + (onlyEnabled ? " and r.Enabled = 1" : ""), c
             if (SchemaExtensions.IsValid(msg, rule.Schema))
                 return null;
 
-            return $"Message {topic}/{key} rules failed: {rule.Id}";
+            return $"Schema validation failed";
         }
 
         private RuleModel GetRule(string topic, string key)
@@ -98,7 +111,7 @@ where r.RuleTypeId = {(int)type}" + (onlyEnabled ? " and r.Enabled = 1" : ""), c
             return _rules.Where(i => i.Enabled && i.Topic == topic && (i.Key == null || i.Key == key))
                 .OrderBy(i => string.IsNullOrEmpty(i.Key))
                 .ThenBy(i => i.Key)
-                .SingleOrDefault();
+                .FirstOrDefault();
         }
     }
 }

@@ -3,6 +3,7 @@ using ICM.Common.Helpers;
 using ICM.Common.Kafka;
 using ICM.Common.Multithreading;
 using ICM.FormatSupervisor.Enums;
+using Newtonsoft.Json;
 using NLog;
 using System;
 using System.Threading;
@@ -10,6 +11,13 @@ using System.Threading.Tasks;
 
 namespace ICM.FormatSupervisor.Services
 {
+    public class ErrorDescription
+    {
+        public string Message { get; set; }
+        public string Error { get; set; }
+        public string TopicAndKey { get; set; }
+    }
+
     public class SupervisorService : KafkaConsumer
     {
         private readonly RuleService _ruleService;
@@ -30,13 +38,13 @@ namespace ICM.FormatSupervisor.Services
         {
             await _ruleService.Load();
             var topics = _ruleService.GetTopics();
+            await PublishAdpRules("schemas.adp");
             await Start(topics, stopSignal);
         }
 
         public async Task<bool> PublishAdpRules(string topic)
         {
-            var rules = await _ruleService.GetRulesFromDatabase(RuleType.ADP, true);
-            Log.Log(LogLevel.Info, $"{rules.Count} ADP rules fetched from DB");
+            var rules = _ruleService.LoadRules(RuleType.ADP, true);
             try
             {
                 using (var p = CreateProducer())
@@ -50,7 +58,7 @@ namespace ICM.FormatSupervisor.Services
                         });
                     }
                 }
-                Log.Log(LogLevel.Info, $"{rules.Count} rules pushed to '{topic}' topic");
+                Log.Log(LogLevel.Info, $"{rules.Count} ADP rule(s) pushed to '{topic}' topic");
                 return true;
             }
             catch (Exception ex)
@@ -63,14 +71,21 @@ namespace ICM.FormatSupervisor.Services
         protected override async Task PerformTask(ConsumeResult<string, byte[]> message)
         {
             var messageText = _messageSerializer.Deserialize<string>(message.Value);
-            var errors = _ruleService.Validate(message.Topic, message.Key, messageText);
-            if (errors == null)
+            var error = _ruleService.Validate(message.Topic, message.Key, messageText);
+            if (error == null)
                 return;
 
+            var errorDesc = new ErrorDescription
+            {
+                Message = messageText,
+                Error = error,
+                TopicAndKey = $"{message.Topic}/{message.Key}"
+            };
+
+            Log.Log(LogLevel.Warn, JsonConvert.SerializeObject(errorDesc));
             using (var p = CreateProducer())
             {
-                await p.ProduceAsync("format.issues", new Message<string, byte[]>() { Key = message.Topic, Value = _messageSerializer.Serialize(errors) });
-                Log.Log(LogLevel.Warn, errors);
+                await p.ProduceAsync("format.issues", new Message<string, byte[]>() { Key = message.Topic, Value = _messageSerializer.Serialize(errorDesc) });
             }
         }
     }

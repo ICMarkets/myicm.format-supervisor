@@ -535,7 +535,7 @@
     </ProjectReference>
     <ProjectReference Include="..\ICM.FormatSupervisor\ICM.FormatSupervisor.csproj">
       <Project>{5351e82d-bac8-4340-8b85-8f1ae3b5a85c}</Project>
-      <Name>ICM.Scheduler</Name>
+      <Name>ICM.FormatSupervisor</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
