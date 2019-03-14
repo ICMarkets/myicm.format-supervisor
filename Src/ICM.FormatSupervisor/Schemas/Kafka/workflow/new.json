@@ -2,11 +2,15 @@
     "$schema": "http://json-schema.org/draft-04/schema#",
     "type": "object",
     "properties": {
-        "a": {
+        "Workflow": {
+            "type": "string"
+        },
+        "Id": {
             "type": "string"
         }
     },
     "required": [
-        "a"
+        "Workflow",
+        "Id"
     ]
 }

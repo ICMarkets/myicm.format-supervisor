@@ -6,13 +6,15 @@ namespace ICM.Common.Kafka
     {
         public byte[] Serialize<T>(T model)
         {
-            var serializer = MessagePackSerializer.Get<T>();
+            var ctx = new SerializationContext() { SerializationMethod = SerializationMethod.Map };
+            var serializer = MessagePackSerializer.Get<T>(ctx);
             return serializer.PackSingleObject(model);
         }
 
         public T Deserialize<T>(byte[] message)
         {
-            var serializer = MessagePackSerializer.Get<T>();
+            var ctx = new SerializationContext() { SerializationMethod = SerializationMethod.Map };
+            var serializer = MessagePackSerializer.Get<T>(ctx);
             return serializer.UnpackSingleObject(message);
         }
     }

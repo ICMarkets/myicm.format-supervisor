@@ -3,6 +3,7 @@ using ICM.Common.Helpers;
 using ICM.Common.Kafka;
 using ICM.Common.Multithreading;
 using ICM.FormatSupervisor.Enums;
+using MessagePack;
 using Newtonsoft.Json;
 using NLog;
 using System;
@@ -70,7 +71,7 @@ namespace ICM.FormatSupervisor.Services
 
         protected override async Task PerformTask(ConsumeResult<string, byte[]> message)
         {
-            var messageText = _messageSerializer.Deserialize<string>(message.Value);
+            var messageText = MessagePackSerializer.ToJson(message.Value);
             var error = _ruleService.Validate(message.Topic, message.Key, messageText);
             if (error == null)
                 return;
