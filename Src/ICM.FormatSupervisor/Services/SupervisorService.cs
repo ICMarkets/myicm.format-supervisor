@@ -74,7 +74,10 @@ namespace ICM.FormatSupervisor.Services
             var messageText = MessagePackSerializer.ToJson(message.Value);
             var error = _ruleService.Validate(message.Topic, message.Key, messageText);
             if (error == null)
+            {
+                Log.Log(LogLevel.Debug, $"{message.Topic}/{message.Key}: valid message");
                 return;
+            }
 
             var errorDesc = new ErrorDescription
             {

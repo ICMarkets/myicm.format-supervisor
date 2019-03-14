@@ -3,6 +3,7 @@ using ICM.Common.Multithreading;
 using NLog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -51,13 +52,24 @@ namespace ICM.Common.Kafka
                         {
                             var message = _consumer.Consume(stopSignal);
                             _workerCountdown.AddCount();
+                            //await PerformTask(message)
+                            //    .ContinueWith(task =>
+                            //    {
+                            //        _workerCountdown.Signal();
+                            //        if (task.IsFaulted)
+                            //            Log.Log(LogLevel.Warn, string.Join(", ", task.Exception.InnerExceptions.Select(e => e.Message)));
+                            //    });
                             Task.Run(async () => await PerformTask(message)
                                 .ContinueWith(task =>
                                 {
                                     _workerCountdown.Signal();
                                     if (task.IsFaulted)
-                                        throw task.Exception;
-                                }));
+                                        Log.Log(LogLevel.Warn, string.Join(", ", task.Exception.InnerExceptions.Select(e => e.Message)));
+                                })).ContinueWith(task =>
+                                {
+                                    if (task.IsFaulted)
+                                        Log.Log(LogLevel.Warn, string.Join(", ", task.Exception.InnerExceptions.Select(e => e.Message)));
+                                });
                         }
                         catch (OperationCanceledException)
                         {

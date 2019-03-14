@@ -22,6 +22,9 @@
     <None Update="Schemas\ADP\test.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Schemas\Kafka\workflow\command.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Schemas\Kafka\workflow\new.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
